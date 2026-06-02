@@ -1,20 +1,20 @@
- name: Test ECS Runner
+name: Test ECS Runner
 
-  on:
-    workflow_dispatch:
-  
-  jobs:
-    test:
-      runs-on: [self-hosted, ecs, linux]
+on:
+  workflow_dispatch:
 
-      steps:
-        - name: Check runner
-          run: echo "Running on ECS self-hosted runner!"
+jobs:
+  test:
+    runs-on: [self-hosted, ecs, linux]
 
-        - name: Check AWS CLI
-          run: aws --version
+    steps:
+      - name: Check runner
+        run: echo "Running on ECS self-hosted runner!"
 
-        - name: Check environment
-          run: |
-            echo "Hostname: $(hostname)"
-            echo "User: $(whoami)"
+      - name: Check AWS CLI
+        run: aws --version
+
+      - name: Check environment
+        run: |
+          echo "Hostname: $(hostname)"
+          echo "User: $(whoami)"

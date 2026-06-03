@@ -1,10 +1,43 @@
-name: Test ECS Runner
+name: Test ECS Runner - 3 Jobs
 
 on:
   workflow_dispatch:
 
+env:
+  AWS_REGION: eu-west-1
+  ECS_CLUSTER: my-ecs-demo
+  TASK_DEFINITION: github-runner
+
 jobs:
-  test:
+
+  start-runner:
+    name: Start self-hosted runner
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      task_arn: ${{ steps.start.outputs.task_arn }}
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-ecs-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Start ECS runner task
+        id: start
+        uses: PasseiDireto/gh-runner-task-action@main
+        with:
+          github_pat: ${{ secrets.RUNNER_PAT }}
+          task_definition: ${{ env.TASK_DEFINITION }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait: true
+
+  do-work:
+    name: Run job on self-hosted runner
+    needs: start-runner
     runs-on: [self-hosted, ecs, linux]
 
     steps:
@@ -16,3 +49,26 @@ jobs:
           echo "Hostname: $(hostname)"
           echo "User: $(whoami)"
           echo "OS: $(uname -a)"
+
+  stop-runner:
+    name: Stop self-hosted runner
+    needs: [start-runner, do-work]
+    runs-on: ubuntu-latest
+    if: always()
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-ecs-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Stop ECS runner task
+        run: |
+          aws ecs stop-task \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --task ${{ needs.start-runner.outputs.task_arn }} \
+            --reason "Job completed"

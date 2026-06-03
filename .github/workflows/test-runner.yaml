@@ -46,7 +46,7 @@ jobs:
             --tasks $TASK_ARN
 
           # Give runner time to register with GitHub
-          sleep 10
+          sleep 30
 
   do-work:
     name: Run job on self-hosted runner

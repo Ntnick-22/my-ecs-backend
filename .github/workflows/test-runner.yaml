@@ -29,11 +29,14 @@ jobs:
       - name: Start ECS runner task
         id: start
         run: |
+          RUNNER_NAME="ecs-runner-${{ github.run_id }}"
+
           FULL_OUTPUT=$(aws ecs run-task \
             --cluster ${{ env.ECS_CLUSTER }} \
             --task-definition ${{ env.TASK_DEFINITION }} \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[subnet-0c971a6f9f3109f9e,subnet-018fa36a60509aee9],securityGroups=[sg-0547ebb40d03e880f],assignPublicIp=ENABLED}" \
+            --overrides "{\"containerOverrides\":[{\"name\":\"runner\",\"environment\":[{\"name\":\"RUNNER_NAME\",\"value\":\"$RUNNER_NAME\"}]}]}" \
             --output json)
 
           echo "Full output: $FULL_OUTPUT"

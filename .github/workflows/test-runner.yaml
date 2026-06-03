@@ -81,7 +81,15 @@ jobs:
 
       - name: Stop ECS runner task
         run: |
+          TASK_ARN="${{ needs.start-runner.outputs.task_arn }}"
+          echo "Task ARN: $TASK_ARN"
+
+          if [ -z "$TASK_ARN" ]; then
+            echo "No task ARN found, skipping stop"
+            exit 0
+          fi
+
           aws ecs stop-task \
             --cluster ${{ env.ECS_CLUSTER }} \
-            --task ${{ needs.start-runner.outputs.task_arn }} \
+            --task "$TASK_ARN" \
             --reason "Job completed"

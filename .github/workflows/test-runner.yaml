@@ -16,8 +16,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    outputs:
-      task_arn: ${{ steps.start.outputs.task_arn }}
 
     steps:
       - name: Configure AWS Credentials
@@ -26,39 +24,31 @@ jobs:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-ecs-role
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Start ECS runner task
-        id: start
+      - name: Generate network config
+        env:
+          ECS_SUBNETS: ${{ secrets.ECS_SUBNETS }}
+          ECS_SECURITY_GROUP: ${{ secrets.ECS_SECURITY_GROUP }}
         run: |
-          RUNNER_NAME="ecs-runner-${{ github.run_id }}"
+          SUBNETS_JSON=$(echo "$ECS_SUBNETS" | sed 's/,/","/g')
+          cat > task-params.json << EOF
+          {
+            "networkConfiguration": {
+              "awsvpcConfiguration": {
+                "subnets": ["${SUBNETS_JSON}"],
+                "securityGroups": ["${ECS_SECURITY_GROUP}"],
+                "assignPublicIp": "ENABLED"
+              }
+            }
+          }
+          EOF
 
-          FULL_OUTPUT=$(aws ecs run-task \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --task-definition ${{ env.TASK_DEFINITION }} \
-            --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.ECS_SUBNETS }}],securityGroups=[${{ secrets.ECS_SECURITY_GROUP }}],assignPublicIp=ENABLED}" \
-            --overrides "{\"containerOverrides\":[{\"name\":\"runner\",\"environment\":[{\"name\":\"RUNNER_NAME\",\"value\":\"$RUNNER_NAME\"}]}]}" \
-            --output json)
-
-          echo "Full output: $FULL_OUTPUT"
-
-          TASK_ARN=$(echo $FULL_OUTPUT | jq -r '.tasks[0].taskArn')
-          echo "Task ARN: $TASK_ARN"
-
-          if [ -z "$TASK_ARN" ] || [ "$TASK_ARN" = "null" ]; then
-            echo "Failed to start ECS task"
-            echo "$FULL_OUTPUT" | jq '.failures'
-            exit 1
-          fi
-
-          echo "task_arn=$TASK_ARN" >> $GITHUB_OUTPUT
-
-          # Wait for task to be running
-          aws ecs wait tasks-running \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --tasks $TASK_ARN
-
-          # Give runner time to register with GitHub
-          sleep 30
+      - name: Start ECS runner
+        uses: PasseiDireto/gh-runner-task-action@main
+        with:
+          github_pat: ${{ secrets.RUNNER_PAT }}
+          task_definition: ${{ env.TASK_DEFINITION }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          task_params_file: task-params.json
 
   do-work:
     name: Run job on self-hosted runner
@@ -106,7 +96,6 @@ jobs:
             exit 0
           fi
 
-          # Stop only github-runner tasks
           for TASK_ARN in $TASK_ARNS; do
             GROUP=$(aws ecs describe-tasks \
               --cluster ${{ env.ECS_CLUSTER }} \

@@ -88,26 +88,28 @@ jobs:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/github-actions-ecs-role
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Stop ECS runner task
+      - name: Stop ECS runner tasks
         run: |
-          TASK_ARN="${{ needs.start-runner.outputs.task_arn }}"
-          echo "Task ARN: $TASK_ARN"
+          echo "Finding all running github-runner tasks..."
+          TASK_ARNS=$(aws ecs list-tasks \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --family ${{ env.TASK_DEFINITION }} \
+            --desired-status RUNNING \
+            --region ${{ env.AWS_REGION }} \
+            --query 'taskArns[]' \
+            --output text)
 
-          if [ -z "$TASK_ARN" ]; then
-            echo "No task ARN found, skipping stop"
-            exit 1
+          if [ -z "$TASK_ARNS" ]; then
+            echo "No running runner tasks found"
+            exit 0
           fi
 
-          aws ecs stop-task \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --task "$TASK_ARN" \
-            --reason "Job completed" \
-            --region ${{ env.AWS_REGION }}
-
-          echo "Waiting for task to stop..."
-          aws ecs wait tasks-stopped \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --tasks "$TASK_ARN" \
-            --region ${{ env.AWS_REGION }}
-
-          echo "Task stopped successfully"
+          echo "Stopping tasks: $TASK_ARNS"
+          for TASK_ARN in $TASK_ARNS; do
+            aws ecs stop-task \
+              --cluster ${{ env.ECS_CLUSTER }} \
+              --task "$TASK_ARN" \
+              --reason "Job completed" \
+              --region ${{ env.AWS_REGION }}
+            echo "Stopped: $TASK_ARN"
+          done

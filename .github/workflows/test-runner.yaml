@@ -86,10 +86,19 @@ jobs:
 
           if [ -z "$TASK_ARN" ]; then
             echo "No task ARN found, skipping stop"
-            exit 0
+            exit 1
           fi
 
           aws ecs stop-task \
             --cluster ${{ env.ECS_CLUSTER }} \
             --task "$TASK_ARN" \
-            --reason "Job completed"
+            --reason "Job completed" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "Waiting for task to stop..."
+          aws ecs wait tasks-stopped \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --tasks "$TASK_ARN" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "Task stopped successfully"

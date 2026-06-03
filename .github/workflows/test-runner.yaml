@@ -11,10 +11,8 @@ jobs:
       - name: Check runner
         run: echo "Running on ECS self-hosted runner!"
 
-      - name: Check AWS CLI
-        run: aws --version
-
       - name: Check environment
         run: |
           echo "Hostname: $(hostname)"
           echo "User: $(whoami)"
+          echo "OS: $(uname -a)"

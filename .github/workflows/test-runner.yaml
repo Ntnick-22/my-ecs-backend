@@ -28,12 +28,25 @@ jobs:
 
       - name: Start ECS runner task
         id: start
-        uses: PasseiDireto/gh-runner-task-action@main
-        with:
-          github_pat: ${{ secrets.RUNNER_PAT }}
-          task_definition: ${{ env.TASK_DEFINITION }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait: true
+        run: |
+          TASK_ARN=$(aws ecs run-task \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --task-definition ${{ env.TASK_DEFINITION }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[subnet-0c971a6f9f3109f9e,subnet-018fa36a60509aee9],securityGroups=[sg-0547ebb40d03e880f],assignPublicIp=ENABLED}" \
+            --query 'tasks[0].taskArn' \
+            --output text)
+
+          echo "task_arn=$TASK_ARN" >> $GITHUB_OUTPUT
+          echo "Started task: $TASK_ARN"
+
+          # Wait for task to be running
+          aws ecs wait tasks-running \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --tasks $TASK_ARN
+
+          # Give runner time to register with GitHub
+          sleep 10
 
   do-work:
     name: Run job on self-hosted runner

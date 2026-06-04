@@ -32,6 +32,7 @@ jobs:
           SUBNETS_JSON=$(echo "$ECS_SUBNETS" | sed 's/,/","/g')
           cat > task-params.json << EOF
           {
+            "launchType": "FARGATE",
             "networkConfiguration": {
               "awsvpcConfiguration": {
                 "subnets": ["${SUBNETS_JSON}"],

@@ -44,6 +44,21 @@ def init_db():
 init_db()
 
 
+@app.errorhandler(psycopg2.OperationalError)
+def database_unavailable(error):
+    app.logger.error("Database unavailable: %s", error)
+    return jsonify({"error": "Database unavailable"}), 503
+
+
+@app.get("/api/ready")
+def ready():
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1;")
+
+    return jsonify({"status": "ready"})
+
+
 @app.get("/api/health")
 def health():
     try:

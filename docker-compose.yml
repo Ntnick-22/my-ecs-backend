@@ -2,7 +2,7 @@ services:
   backend:
     build:
       context: .
-    container_name: learn-ecs-backend
+    container_name: myecs-backend
     environment:
       FLASK_ENV: ${FLASK_ENV}
       DB_HOST: db
@@ -20,7 +20,7 @@ services:
 
   db:
     image: postgres:16-alpine
-    container_name: learn-ecs-db
+    container_name: myecs-db
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}

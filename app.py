@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app)
 
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "learn-ecs-db"),
+    "host": os.getenv("DB_HOST", "myecs-db"),
     "port": os.getenv("DB_PORT", "5432"),
     "dbname": os.getenv("POSTGRES_DB", "learn_devops"),
     "user": os.getenv("POSTGRES_USER", "learn_user"),
@@ -56,7 +56,7 @@ def health():
 
     return jsonify({
         "status": "ok",
-        "service": "learn-ecs-backend",
+        "service": "myecs-backend",
         "port": 8000,
         "database": db_status,
         "db_host": DB_CONFIG["host"]

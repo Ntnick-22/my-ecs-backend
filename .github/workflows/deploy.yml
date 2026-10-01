@@ -38,12 +38,18 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push image
+      - name: Build and push image (skipped if this commit is already in ECR)
         id: image
         run: |
           IMAGE="${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:${GITHUB_SHA::7}"
-          docker build --provenance=false -t "$IMAGE" .
-          docker push "$IMAGE"
+          # Tags are immutable and named after the commit, so a re-run of the same commit
+          # (e.g. "Run workflow" to redeploy) reuses the image that is already in ECR
+          if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "Image $IMAGE already exists, skipping build"
+          else
+            docker build --provenance=false -t "$IMAGE" .
+            docker push "$IMAGE"
+          fi
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Download current task definition

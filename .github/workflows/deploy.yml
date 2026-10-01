@@ -75,24 +75,27 @@ jobs:
           # The action's own waiter backs off exponentially and noticed completion up to ~7 min late
           wait-for-service-stability: false
 
-      # Polls every 15s. One waiter call gives up after 10 min; a failing deploy needs several
-      # task attempts plus the rollback, so allow a second round (20 min total).
-      - name: Wait for the service to be stable
-        run: |
-          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" ||
-            aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
-
-      # "Stable" is also true after a circuit-breaker rollback (stable on the OLD version),
-      # so check that the revision now running is the one this run deployed.
-      - name: Verify the new revision is live (not rolled back)
+      # Follow THIS run's deployment until ECS gives a verdict. "services-stable" isn't enough:
+      # it returns while rolloutState is still IN_PROGRESS, and it is also satisfied after a
+      # circuit-breaker rollback (stable again, but on the old revision).
+      - name: Wait for the deployment to complete (or be rolled back)
         env:
           EXPECTED: ${{ steps.deploy.outputs.task-definition-arn }}
         run: |
-          PRIMARY=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
-            --query 'services[0].deployments[?status==`PRIMARY`].[taskDefinition,rolloutState]' --output text)
-          echo "Expected: $EXPECTED"
-          echo "Running:  $PRIMARY"
-          if [[ "$PRIMARY" != "$EXPECTED"$'\t'"COMPLETED" ]]; then
-            echo "::error::Deployment did not complete on the new revision - the circuit breaker rolled it back. Check the service events and container logs."
-            exit 1
-          fi
+          echo "Following deployment of $EXPECTED"
+          for i in $(seq 1 80); do # 80 x 15s = 20 min
+            STATE=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+              --query "services[0].deployments[?taskDefinition=='$EXPECTED'].rolloutState | [0]" --output text)
+            echo "$(date +%T) rolloutState=$STATE"
+            case "$STATE" in
+              COMPLETED) echo "New revision is live."; exit 0 ;;
+              FAILED|None)
+                echo "::error::Deployment failed - the circuit breaker rolled it back to the previous revision. Check the service events and container logs."
+                aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+                  --query 'services[0].events[:8].message' --output text
+                exit 1 ;;
+            esac
+            sleep 15
+          done
+          echo "::error::Timed out after 20 min waiting for the deployment"
+          exit 1

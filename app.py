@@ -9,7 +9,7 @@ app = Flask(__name__)
 CORS(app)
 
 DB_CONFIG = {
-    "host": os.getenv("DB_HOSTT", "myecs-db"),
+    "host": os.getenv("DB_HOST", "myecs-db"),
     "port": os.getenv("DB_PORT", "5432"),
     "dbname": os.getenv("POSTGRES_DB", "learn_devops"),
     "user": os.getenv("POSTGRES_USER", "learn_user"),

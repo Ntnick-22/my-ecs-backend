@@ -8,12 +8,15 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
+# Required config has NO defaults: a missing or misspelled variable crashes the app at startup,
+# so ECS sees a failed task and the circuit breaker rolls the deploy back (drill D, 2026-10-06:
+# a silent default "myecs-db" made a typo look healthy and broke every DB request instead).
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "myecs-db"),
+    "host": os.environ["DB_HOST"],
     "port": os.getenv("DB_PORT", "5432"),
-    "dbname": os.getenv("POSTGRES_DB", "learn_devops"),
-    "user": os.getenv("POSTGRES_USER", "learn_user"),
-    "password": os.getenv("POSTGRES_PASSWORD", "learn_password"),
+    "dbname": os.environ["POSTGRES_DB"],
+    "user": os.environ["POSTGRES_USER"],
+    "password": os.environ["POSTGRES_PASSWORD"],
 }
 
 

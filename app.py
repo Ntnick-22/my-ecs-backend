@@ -12,7 +12,7 @@ CORS(app)
 # so ECS sees a failed task and the circuit breaker rolls the deploy back (drill D, 2026-10-06:
 # a silent default "myecs-db" made a typo look healthy and broke every DB request instead).
 DB_CONFIG = {
-    "host": os.environ["DB_HOSTT"],
+    "host": os.environ["DB_HOST"],
     "port": os.getenv("DB_PORT", "5432"),
     "dbname": os.environ["POSTGRES_DB"],
     "user": os.environ["POSTGRES_USER"],

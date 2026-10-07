@@ -100,7 +100,7 @@ def stats():
             cur.execute("SELECT COUNT(*) FROM users;")
             total_users = cur.fetchone()[0]
 
-            cur.execute("SELECT COUNT(*) FROM users WHERE created_at::date = CURRENT_DATE;")
+            cur.execute("SELECT COUNT(*) FROM users WHERE created_on::date = CURRENT_DATE;")
             today_users = cur.fetchone()[0]
 
             cur.execute("SELECT COUNT(DISTINCT role) FROM users;")

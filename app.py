@@ -100,7 +100,8 @@ def stats():
             cur.execute("SELECT COUNT(*) FROM users;")
             total_users = cur.fetchone()[0]
 
-            cur.execute("SELECT COUNT(*) FROM users WHERE created_at::date = CURRENT_DATE;")
+            cur.execute(
+                "SELECT COUNT(*) FROM users WHERE created_on::date = CURRENT_DATE;")
             today_users = cur.fetchone()[0]
 
             cur.execute("SELECT COUNT(DISTINCT role) FROM users;")
@@ -153,7 +154,8 @@ def register():
 def delete_user(user_id):
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM users WHERE id = %s RETURNING id;", (user_id,))
+            cur.execute(
+                "DELETE FROM users WHERE id = %s RETURNING id;", (user_id,))
             deleted = cur.fetchone()
         conn.commit()
 

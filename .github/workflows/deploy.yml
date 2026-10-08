@@ -1,17 +1,14 @@
-name: Build and Deploy to ECS
+name: Test, Build and Deploy to ECS
 
 on:
   push:
     branches: [main]
+  pull_request: # PRs run the tests only; the deploy job is skipped (see its "if")
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  id-token: write # lets the job request a GitHub OIDC token to exchange for AWS credentials
-  contents: read
-
-concurrency:
-  group: deploy-backend
-  cancel-in-progress: false # never cancel a deploy half-way; queue the next one
+  contents: read # default for every job; only deploy gets more
 
 env:
   AWS_REGION: eu-west-1
@@ -23,8 +20,52 @@ env:
   CONTAINER_NAME: backend
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
+    # Throwaway Postgres next to the runner, same version as RDS. Published on 5433 so the
+    # defaults in tests/conftest.py work unchanged (same as the local docker run).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5433:5432
+        # Steps only start once this health check passes ("started" is not "ready")
+        options: >-
+          --health-cmd "pg_isready -U test -d test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12" # same minor version as the python:3.12-slim image
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest -v
+
+  deploy:
+    needs: test # a red test means this job never starts: nothing is built, pushed or deployed
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # lets the job request a GitHub OIDC token to exchange for AWS credentials
+      contents: read
+    concurrency:
+      group: deploy-backend
+      cancel-in-progress: false # never cancel a deploy half-way; queue the next one
     steps:
       - uses: actions/checkout@v4
 

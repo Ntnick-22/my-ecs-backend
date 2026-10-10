@@ -21,7 +21,7 @@ env:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Throwaway Postgres next to the runner, same version as RDS. Published on 5433 so the
     # defaults in tests/conftest.py work unchanged (same as the local docker run).
     services:
@@ -40,9 +40,9 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12" # same minor version as the python:3.12-slim image
           cache: pip
@@ -59,7 +59,7 @@ jobs:
   deploy:
     needs: test # a red test means this job never starts: nothing is built, pushed or deployed
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       id-token: write # lets the job request a GitHub OIDC token to exchange for AWS credentials
       contents: read
@@ -67,10 +67,10 @@ jobs:
       group: deploy-backend
       cancel-in-progress: false # never cancel a deploy half-way; queue the next one
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}

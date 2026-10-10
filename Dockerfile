@@ -1,5 +1,8 @@
 FROM python:3.12-slim
 
+
+RUN useradd --system --no-create-home --uid 10001 appuser
+
 WORKDIR /app
 
 COPY requirements.txt .
@@ -8,6 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py .
 
-EXPOSE 8080
+USER appuser
+
+EXPOSE 8000
 
 CMD ["gunicorn", "-b", "0.0.0.0:8000", "app:app"]

@@ -26,7 +26,10 @@ def get_connection():
 
 
 def init_db():
-    for _ in range(30):
+    # Retry only "can't reach the database yet" (RDS or the compose db still starting). Anything
+    # else, or still unreachable after ~60 s, is raised: the task crashes at startup and the circuit
+    # breaker rolls the deploy back, instead of running with no users table.
+    for attempt in range(30):
         try:
             with get_connection() as conn:
                 with conn.cursor() as cur:
@@ -41,7 +44,9 @@ def init_db():
                     """)
                 conn.commit()
             return
-        except Exception:
+        except psycopg2.OperationalError:
+            if attempt == 29:
+                raise
             time.sleep(2)
 
 
@@ -68,7 +73,7 @@ def health():
         with get_connection() as conn, conn.cursor() as cur:
             cur.execute("SELECT 1;")
         db_status = "connected"
-    except Exception:
+    except psycopg2.Error:  # database problems only; a bug in this function should still surface
         db_status = "disconnected"
 
     return jsonify({
@@ -82,12 +87,11 @@ def health():
 
 @app.get("/api/users")
 def list_users():
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC;"
-            )
-            users = cur.fetchall()
+    with get_connection() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            "SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC;"
+        )
+        users = cur.fetchall()
 
     return jsonify({"users": users})
 
@@ -143,8 +147,12 @@ def register():
 
     except psycopg2.errors.UniqueViolation:
         return jsonify({"error": "This email is already registered"}), 409
-    except Exception as e:
-        return jsonify({"error": "Registration failed", "details": str(e)}), 500
+    except psycopg2.OperationalError:
+        raise  # database down: the errorhandler above answers 503, like every other endpoint
+    except psycopg2.Error:
+        # The details (SQL, column types) go to the logs (CloudWatch), never to the client
+        app.logger.exception("Registration failed")
+        return jsonify({"error": "Registration failed"}), 500
 
 
 @app.delete("/api/users/<int:user_id>")

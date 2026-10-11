@@ -1,0 +1,8 @@
+# Line endings: store every text file with LF in the repo, and check it out with LF everywhere
+# (Windows git, WSL git, GitHub Actions, Docker). Overrides each machine's core.autocrlf setting.
+* text=auto eol=lf
+
+# Windows-only scripts are the exception: cmd/PowerShell expect CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

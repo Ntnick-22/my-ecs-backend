@@ -53,6 +53,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
+      # Cheapest checks first: a lint or formatting problem fails in seconds, before the tests run.
+      # Rules and version come from pyproject.toml and requirements-dev.txt (same as locally).
+      - name: Lint (ruff check)
+        run: ruff check --output-format=github .
+
+      - name: Check formatting (ruff format)
+        run: ruff format --check --diff .
+
       - name: Run tests
         run: pytest -v
 

@@ -76,21 +76,21 @@ def health():
     except psycopg2.Error:  # database problems only; a bug in this function should still surface
         db_status = "disconnected"
 
-    return jsonify({
-        "status": "ok",
-        "service": "myecs-backend",
-        "port": 8000,
-        "database": db_status,
-        "db_host": DB_CONFIG["host"]
-    })
+    return jsonify(
+        {
+            "status": "ok",
+            "service": "myecs-backend",
+            "port": 8000,
+            "database": db_status,
+            "db_host": DB_CONFIG["host"],
+        }
+    )
 
 
 @app.get("/api/users")
 def list_users():
     with get_connection() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute(
-            "SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC;"
-        )
+        cur.execute("SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC;")
         users = cur.fetchall()
 
     return jsonify({"users": users})
@@ -108,11 +108,9 @@ def stats():
         cur.execute("SELECT COUNT(DISTINCT role) FROM users;")
         total_roles = cur.fetchone()[0]
 
-    return jsonify({
-        "total_users": total_users,
-        "today_users": today_users,
-        "total_roles": total_roles
-    })
+    return jsonify(
+        {"total_users": total_users, "today_users": today_users, "total_roles": total_roles}
+    )
 
 
 @app.post("/api/register")
@@ -140,10 +138,7 @@ def register():
                 user = cur.fetchone()
             conn.commit()
 
-        return jsonify({
-            "message": "Registration successful",
-            "user": user
-        }), 201
+        return jsonify({"message": "Registration successful", "user": user}), 201
 
     except psycopg2.errors.UniqueViolation:
         return jsonify({"error": "This email is already registered"}), 409

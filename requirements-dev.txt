@@ -1,3 +1,4 @@
 # Test-only dependencies: installed in CI's test job, never in the production image
 -r requirements.txt
 pytest==8.3.3
+ruff==0.17.0

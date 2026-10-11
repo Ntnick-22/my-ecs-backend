@@ -1,9 +1,10 @@
 import os
 import time
+
 import psycopg2
-from psycopg2.extras import RealDictCursor
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
 CORS(app)
@@ -55,9 +56,8 @@ def database_unavailable(error):
 
 @app.get("/api/ready")
 def ready():
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1;")
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT 1;")
 
     return jsonify({"status": "ready"})
 
@@ -65,9 +65,8 @@ def ready():
 @app.get("/api/health")
 def health():
     try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1;")
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute("SELECT 1;")
         db_status = "connected"
     except Exception:
         db_status = "disconnected"
@@ -95,16 +94,15 @@ def list_users():
 
 @app.get("/api/stats")
 def stats():
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM users;")
-            total_users = cur.fetchone()[0]
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM users;")
+        total_users = cur.fetchone()[0]
 
-            cur.execute("SELECT COUNT(*) FROM users WHERE created_at::date = CURRENT_DATE;")
-            today_users = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM users WHERE created_at::date = CURRENT_DATE;")
+        today_users = cur.fetchone()[0]
 
-            cur.execute("SELECT COUNT(DISTINCT role) FROM users;")
-            total_roles = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(DISTINCT role) FROM users;")
+        total_roles = cur.fetchone()[0]
 
     return jsonify({
         "total_users": total_users,

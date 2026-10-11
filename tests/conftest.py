@@ -10,7 +10,7 @@ os.environ.setdefault("POSTGRES_DB", "test")
 os.environ.setdefault("POSTGRES_USER", "test")
 os.environ.setdefault("POSTGRES_PASSWORD", "test")
 
-import app as backend  # noqa: E402  (creates the users table)
+import app as backend
 
 
 @pytest.fixture

@@ -36,6 +36,14 @@ def test_register_duplicate_email_is_409(client):
     assert r.status_code == 409
 
 
+def test_register_database_error_does_not_leak_details(client):
+    # Longer than VARCHAR(100): Postgres rejects the INSERT. The client gets a generic error;
+    # the real one (SQL, column types) belongs in the logs, not in the response
+    r = register(client, name="x" * 101)
+    assert r.status_code == 500
+    assert r.get_json() == {"error": "Registration failed"}
+
+
 def test_list_users(client):
     register(client)
     register(client, name="Bob", email="bob@example.com")

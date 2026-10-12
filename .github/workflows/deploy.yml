@@ -18,6 +18,7 @@ env:
   ECS_SERVICE: myecs-backend
   TASK_FAMILY: myecs-backend
   CONTAINER_NAME: backend
+  APP_URL: https://myecs.nt-nick.link # the public domain, as users reach it
   # Pinned by version AND digest: a re-pushed or hijacked tag can't swap in a different scanner
   TRIVY_IMAGE: aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
 
@@ -160,4 +161,21 @@ jobs:
             sleep 15
           done
           echo "::error::Timed out after 20 min waiting for the deployment"
+          exit 1
+
+      # COMPLETED proves the tasks are healthy from inside AWS. This proves what a user gets:
+      # Route 53 -> ACM cert -> ALB -> nginx -> backend -> RDS, from outside AWS.
+      # It can't roll back (the deployment is already complete); a failure turns the run red.
+      - name: Smoke test (live site)
+        run: |
+          for i in $(seq 1 12); do # 12 x 5s = 1 min, absorbs a slow DNS or ALB moment
+            if BODY=$(curl -fsS --max-time 5 "$APP_URL/api/health") \
+              && echo "$BODY" | jq -e '.database == "connected"' > /dev/null; then
+              echo "OK: $BODY"
+              exit 0
+            fi
+            echo "$(date +%T) attempt $i: not healthy yet"
+            sleep 5
+          done
+          echo "::error::Smoke test failed: $APP_URL/api/health did not report a connected database"
           exit 1

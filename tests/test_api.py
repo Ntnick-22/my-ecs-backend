@@ -44,6 +44,13 @@ def test_register_database_error_does_not_leak_details(client):
     assert r.get_json() == {"error": "Registration failed"}
 
 
+def test_no_cors_headers_for_other_origins(client):
+    # The frontend calls relative /api paths (same origin), so CORS is never needed. A foreign
+    # origin must not be allowed to read API responses from a visitor's browser
+    r = client.get("/api/health", headers={"Origin": "https://evil.example"})
+    assert "Access-Control-Allow-Origin" not in r.headers
+
+
 def test_list_users(client):
     register(client)
     register(client, name="Bob", email="bob@example.com")

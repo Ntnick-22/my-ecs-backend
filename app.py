@@ -3,11 +3,9 @@ import time
 
 import psycopg2
 from flask import Flask, jsonify, request
-from flask_cors import CORS
 from psycopg2.extras import RealDictCursor
 
 app = Flask(__name__)
-CORS(app)
 
 # Required config has NO defaults: a missing or misspelled variable crashes the app at startup,
 # so ECS sees a failed task and the circuit breaker rolls the deploy back (drill D, 2026-10-06:

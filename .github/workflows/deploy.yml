@@ -18,6 +18,8 @@ env:
   ECS_SERVICE: myecs-backend
   TASK_FAMILY: myecs-backend
   CONTAINER_NAME: backend
+  # Pinned by version AND digest: a re-pushed or hijacked tag can't swap in a different scanner
+  TRIVY_IMAGE: aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
 
 jobs:
   test:
@@ -63,6 +65,17 @@ jobs:
 
       - name: Run tests
         run: pytest -v
+
+      # Same Dockerfile the deploy job builds, scanned before anything can reach ECR
+      - name: Build the image
+        run: docker build --provenance=false -t backend-check .
+
+      # Fails only on HIGH/CRITICAL findings that HAVE a fix. Unfixed OS CVEs have nothing to
+      # upgrade to, so failing on them would keep the pipeline red with no way to act on it.
+      - name: Scan the image (Trivy)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock "$TRIVY_IMAGE" \
+            image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress backend-check
 
   deploy:
     needs: test # a red test means this job never starts: nothing is built, pushed or deployed

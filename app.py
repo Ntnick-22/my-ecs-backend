@@ -80,7 +80,6 @@ def health():
             "service": "myecs-backend",
             "port": 8000,
             "database": db_status,
-            "db_host": DB_CONFIG["host"],
         }
     )
 

@@ -8,6 +8,12 @@ def test_health_reports_database_connected(client):
     assert r.get_json()["database"] == "connected"
 
 
+def test_health_does_not_expose_db_host(client):
+    # /api/health is public: it reports whether the database is reachable, never where it is
+    r = client.get("/api/health")
+    assert "db_host" not in r.get_json()
+
+
 def test_ready(client):
     assert client.get("/api/ready").status_code == 200
 

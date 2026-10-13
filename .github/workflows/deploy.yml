@@ -115,12 +115,28 @@ jobs:
           fi
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
+      # Deploy guard: after the nightly destroy there is no service to update. The image is pushed
+      # either way, because the next Apply all starts the service on the most recent ECR image.
+      - name: Check the service exists (environment up?)
+        id: env
+        run: |
+          STATUS=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].status' --output text 2>/dev/null || echo "UNKNOWN")
+          if [ "$STATUS" = "ACTIVE" ]; then
+            echo "up=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Environment is down ($ECS_SERVICE: $STATUS). Image pushed, deploy skipped: the next Apply all starts the service on this image."
+            echo "up=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download current task definition
+        if: steps.env.outputs.up == 'true'
         run: |
           aws ecs describe-task-definition --task-definition "$TASK_FAMILY" \
             --query taskDefinition > task-definition.json
 
       - name: Swap in the new image
+        if: steps.env.outputs.up == 'true'
         id: render
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
@@ -129,6 +145,7 @@ jobs:
           image: ${{ steps.image.outputs.image }}
 
       - name: Deploy new task definition
+        if: steps.env.outputs.up == 'true'
         id: deploy
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
@@ -142,6 +159,7 @@ jobs:
       # it returns while rolloutState is still IN_PROGRESS, and it is also satisfied after a
       # circuit-breaker rollback (stable again, but on the old revision).
       - name: Wait for the deployment to complete (or be rolled back)
+        if: steps.env.outputs.up == 'true'
         env:
           EXPECTED: ${{ steps.deploy.outputs.task-definition-arn }}
         run: |
@@ -167,6 +185,7 @@ jobs:
       # Route 53 -> ACM cert -> ALB -> nginx -> backend -> RDS, from outside AWS.
       # It can't roll back (the deployment is already complete); a failure turns the run red.
       - name: Smoke test (live site)
+        if: steps.env.outputs.up == 'true'
         run: |
           for i in $(seq 1 12); do # 12 x 5s = 1 min, absorbs a slow DNS or ALB moment
             if BODY=$(curl -fsS --max-time 5 "$APP_URL/api/health") \
